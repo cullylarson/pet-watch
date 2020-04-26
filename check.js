@@ -139,8 +139,6 @@ const buildEmailHtml = (message) => {
 }
 
 const sendEmail = (from, to, subject, message) =>{
-    console.log(`FROM: ${from}\nTO: ${to}\nSUBJECT: ${subject}\nMESSAGE:\n\n${message}`)
-    /*
     return new Promise((resolve, reject) => {
         sendmail({
             from,
@@ -152,7 +150,6 @@ const sendEmail = (from, to, subject, message) =>{
             else resolve(reply)
         })
     })
-    */
 }
 
 const findNewItems = (oldData, newData) => {
