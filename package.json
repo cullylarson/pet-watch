@@ -1,7 +1,7 @@
 {
   "name": "pet-watch",
   "version": "1.0.0",
-  "description": "",
+  "description": "Watches the cats on a local humane society webpage, looking for new cats.",
   "scripts": {},
   "author": "Cully Larson <cully.larson@gmail.com>",
   "license": "ISC",
