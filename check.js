@@ -16,8 +16,14 @@ const getAnimalEls = dom => dom.window.document.querySelectorAll('.list-item')
 
 const getElPhotoUrl = el => {
     return el
-        ? el.src
+        ? protocolizeUrl(el.src)
         : null
+}
+
+const protocolizeUrl = (url, protocol = 'https:') => {
+    return url.indexOf('//') === 0
+        ? protocol + url
+        : url
 }
 
 const getElHref = el => {
