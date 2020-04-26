@@ -1,0 +1,20 @@
+{
+  "name": "pet-watch",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {},
+  "author": "Cully Larson <cully.larson@gmail.com>",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cullylarson/pet-watch"
+  },
+  "dependencies": {
+    "@cullylarson/f": "^0.1.2",
+    "escape-html": "^1.0.3",
+    "jsdom": "^16.2.2",
+    "node-fetch": "^2.6.0",
+    "sendmail": "^1.6.1",
+    "url-join": "^4.0.1"
+  }
+}
