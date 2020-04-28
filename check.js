@@ -5,6 +5,7 @@ const path = require('path')
 const fetch = require('node-fetch')
 const sendmail = require('sendmail')({silent: true})
 const escape = require('escape-html')
+const Twilio = require('twilio')
 const {JSDOM} = require('jsdom')
 const {curry, map} = require('@cullylarson/f')
 
@@ -144,11 +145,13 @@ const buildEmailHtml = (message) => {
     return message
 }
 
-const sendEmail = (from, to, subject, message) =>{
+const sendEmail = (contact, subject, message) => {
+    if(!contact.emailFrom || !contact.emailTo) return Promise.resolve()
+
     return new Promise((resolve, reject) => {
         sendmail({
-            from,
-            to,
+            from: contact.emailFrom,
+            to: contact.emailTo,
             subject,
             html: buildEmailHtml(message),
         }, (err, reply) => {
@@ -156,6 +159,22 @@ const sendEmail = (from, to, subject, message) =>{
             else resolve(reply)
         })
     })
+}
+
+const sendSms = (contact, message) => {
+    if(!contact.accountSid || !contact.authToken || !contact.smsFrom || !contact.smsTo) return Promise.resolve()
+
+    const client = Twilio(contact.accountSid, contact.authToken)
+
+    const recipients = contact.smsTo.split(',').map(x => x.trim())
+
+    return Promise.all(recipients.map(to => {
+        return client.messages.create({body: message, from: contact.smsFrom, to})
+    }))
+}
+
+const sendText = (contact, message) => {
+    if(!contact.emailFrom || !contact.emailTo) return Promise.resolve()
 }
 
 const findNewItems = (oldData, newData) => {
@@ -182,62 +201,104 @@ const itemsToHtml = (items) => {
     return items.map(itemToHtml).join("\n")
 }
 
-const handleFirst = (emailFrom, emailRecipients, storedData, fetchedData) => {
+const handleFirst = (contact, checkUrl, storedData, fetchedData) => {
     // don't do anything. no need to send any notifications on the first fetch.
     return Promise.resolve()
 }
 
-const handleVersionMismatch = (emailFrom, emailRecipients, storedData, fetchedData) => {
-    return sendEmail(emailFrom, emailRecipients, 'CATS: maybe something changed?', "The structure of the data used to store cats from previous checks has changed. That might mean there are new cats, or that nothing changed. You'll need to check for yourself.")
+const handleVersionMismatch = (contact, checkUrl, storedData, fetchedData) => {
+    return Promise.all([
+        sendEmail(contact, 'CATS: maybe something changed?', "The structure of the data used to store cats from previous checks has changed. That might mean there are new cats, or that nothing changed. You'll need to check for yourself."),
+        sendSms(contact, `
+There might be new cats, but I tell for sure.
+
+${checkUrl}
+`),
+    ])
 }
 
 const endPlural = (items, ending = 's') => items.length === 1 ? '' : ending
 
-const handleVersionMatch = (emailFrom, emailRecipients, storedData, fetchedData) => {
+const itemsToEmailMessage = items => {
+    return `
+        <p><i>Found ${items.length} new cat${endPlural(items)}</i>:<p>
+
+        ${itemsToHtml(items)}
+    `
+}
+
+const itemsToSmsMessage = (listAllUrl, items) => {
+    const renderOneItem = item => `${item.name} -- ${item.sex}, ${item.age}`
+
+    return `
+${items.length} new cat${endPlural(items)}:
+
+${items.map(renderOneItem).join("\n\n")}
+
+${listAllUrl}
+`
+}
+
+const handleVersionMatch = (contact, checkUrl, storedData, fetchedData) => {
     const newItems = findNewItems(storedData, fetchedData)
 
     // do nothing if nothing has changed
     if(!newItems.length) return Promise.resolve()
 
-    return sendEmail(
-        emailFrom,
-        emailRecipients,
-        'CATS: There are new cats!',
-        `
-            <p><i>Found ${newItems.length} new cat${endPlural(newItems)}</i>:<p>
-
-            ${itemsToHtml(newItems)}
-        `
-    )
+    return Promise.all([
+        sendEmail(
+            contact,
+            'CATS: There are new cats!',
+            itemsToEmailMessage(newItems)
+        ),
+        sendSms(
+            contact,
+            itemsToSmsMessage(checkUrl, newItems)
+        )
+    ])
 }
 
-const processData = (emailFrom, emailRecipients, storedInfo, fetchedData) => {
+const processData = (contact, checkUrl, storedInfo, fetchedData) => {
     const storedData = storedInfo.data.data
 
     if(storedInfo.status === 'first') {
-        handleFirst(emailFrom, emailRecipients, storedData, fetchedData)
+        handleFirst(contact, checkUrl, storedData, fetchedData)
     }
     else if(storedInfo.status === 'version-mismatch') {
-        handleVersionMismatch(emailFrom, emailRecipients, storedData, fetchedData)
+        handleVersionMismatch(contact, checkUrl, storedData, fetchedData)
     }
     else if(storedInfo.status === 'version-match') {
-        handleVersionMatch(emailFrom, emailRecipients, storedData, fetchedData)
+        handleVersionMatch(contact, checkUrl, storedData, fetchedData)
     }
 }
 
-const printUsage = () => {
-    console.error(`Usage: ${path.basename(process.argv[1])} path-to-saved-data url-to-check eamil-from-address email-recipients`)
-    process.exit(1)
+const loadTwilio = filePath => {
+    return fs.promises.readFile(filePath, {encoding: 'utf-8'})
+        .then(x => JSON.parse(x))
+        .catch(err => {
+            console.error('Something went wrong while reading your Twilio file: ' + err + "\n" + err.stack)
+            process.exit(5)
+        })
 }
 
-if(!process.argv[2] || !process.argv[3] || !process.argv[4] || !process.argv[5]) printUsage()
+const argv = require('yargs')
+    .usage('Usage: $0 [options]')
+    .demandOption(['savedDataPath', 'url'])
+    .help('h')
+    .describe('savedDataPath', 'Path to the file where this app should save data.')
+    .describe('url', 'The url to the pets list.')
+    .describe('emailFrom', 'Send notification emails from this address.')
+    .describe('emailTo', 'Send notification emails to this address (or multiple, comma-separated).')
+    .describe('twilio', 'The path to a file that contains Twilio credentials, if you want to send SMS text notifications.')
+    .describe('smsFrom', 'The phone number to send SMS messages from. Listed in your Twilio account.')
+    .describe('smsTo', 'Send SMS notifications to this phone number (or multiple, comma-separated).')
+    .argv
 
-const savedDataPath = process.argv[2]
-const checkUrl = process.argv[3]
-const emailFrom = process.argv[4]
-const emailRecipients = process.argv[5]
+const savedDataPath = argv.savedDataPath
+const checkUrl = argv.url
 
 Promise.all([
+    loadTwilio(argv.twilio),
     readSavedData(savedDataPath),
     readHtml(checkUrl)
         .then(loadDom)
@@ -249,10 +310,18 @@ Promise.all([
             process.exit(2)
         }),
 ])
-    .then(([storedInfo, fetchedData]) => {
+    .then(([twilioInfo, storedInfo, fetchedData]) => {
         return saveNewData(savedDataPath, fetchedData)
-            .then(() => ({storedInfo, fetchedData}))
+            .then(() => ({twilioInfo, storedInfo, fetchedData}))
     })
-    .then(({storedInfo, fetchedData}) => {
-        processData(emailFrom, emailRecipients, storedInfo, fetchedData)
+    .then(({twilioInfo, storedInfo, fetchedData}) => {
+        const contact = {
+            emailFrom: argv.emailFrom,
+            emailTo: argv.emailTo,
+            smsFrom: argv.smsFrom,
+            smsTo: argv.smsTo,
+            ...twilioInfo,
+        }
+
+        processData(contact, checkUrl, storedInfo, fetchedData)
     })
