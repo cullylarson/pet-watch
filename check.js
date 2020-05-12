@@ -55,7 +55,8 @@ const relativeProfileUrlToAbsolute = (checkUrl, profileUrl) => {
         + '//'
         + urlJoin(
             u.host || '',
-            path.basename(u.pathname) || '',
+            // if it starts with a /, then we just need the hostname, otherwise the folder name
+            profileUrl.indexOf('/') === 0 ? '' : path.dirname(u.pathname) || '',
             profileUrl,
         )
 }
