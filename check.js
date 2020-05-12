@@ -273,6 +273,8 @@ const processData = (contact, checkUrl, storedInfo, fetchedData) => {
 }
 
 const loadTwilio = filePath => {
+    if(!filePath) return Promise.resolve({})
+
     return fs.promises.readFile(filePath, {encoding: 'utf-8'})
         .then(x => JSON.parse(x))
         .catch(err => {
