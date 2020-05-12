@@ -189,13 +189,14 @@ const itemsToHtml = (items) => {
     const itemToHtml = item => {
         return `
             <p>
-                <img src='${item.photoUrl}' /><br />
+                <a href='${item.profileUrl}'><img src='${item.photoUrl}' /></a><br />
                 <b><a href='${item.profileUrl}'>${escape(item.name)}</a></b><br />
                 ${escape(item.sex)}<br />
                 ${escape(item.breed)}<br />
                 ${escape(item.age)}<br />
                 <i>${escape(item.location)}</i><br />
             </p>
+            <p>&nbsp;</p>
         `
     }
 
