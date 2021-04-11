@@ -12,11 +12,11 @@
   "dependencies": {
     "@cullylarson/f": "^0.1.2",
     "escape-html": "^1.0.3",
-    "jsdom": "^16.2.2",
-    "node-fetch": "^2.6.0",
+    "jsdom": "^16.5.2",
+    "node-fetch": "^2.6.1",
     "sendmail": "^1.6.1",
-    "twilio": "^3.42.2",
+    "twilio": "^3.60.0",
     "url-join": "^4.0.1",
-    "yargs": "^15.3.1"
+    "yargs": "^16.2.0"
   }
 }
