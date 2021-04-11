@@ -94,7 +94,7 @@ const readHtml = url => {
 
 const readSavedData = path => {
     return fs.promises.readFile(path, {encoding: 'utf-8'})
-        .then(content => JSON.parse(content))
+        .then(content => content ? JSON.parse(content) : {})
         .then(data => {
             if(!data.version) {
                 return {
